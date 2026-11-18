@@ -4,11 +4,11 @@
 
   // ------------------------------------------------------------------ config
   var TYPES = [
-    { key: 'sardine', name: 'Sardine', pts: 1, color: '#7af5ff', size: 4.5, note: 'big, slow schools' },
-    { key: 'mackerel', name: 'Mackerel', pts: 3, color: '#7dffa8', size: 6.5, note: 'mid-sized schools' },
+    { key: 'sardine', name: 'Sardine', pts: 2, color: '#7af5ff', size: 4.5, note: 'big, slow schools' },
+    { key: 'mackerel', name: 'Mackerel', pts: 5, color: '#7dffa8', size: 6.5, note: 'mid-sized schools' },
     { key: 'tuna', name: 'Bluefin Tuna', pts: 8, color: '#ffa94d', size: 9.5, note: 'fast and skittish' },
     { key: 'goldfin', name: 'Goldfin', pts: 30, color: '#ffe14d', size: 10, note: 'rare, flees hard' },
-    { key: 'jelly', name: 'Jellyfish', pts: -5, color: '#e08cff', size: 7, note: 'avoid, costs points' }
+    { key: 'jelly', name: 'Jellyfish', pts: -3, color: '#e08cff', size: 7, note: 'avoid, costs points' }
   ];
   var PING_SPEED = 720;   // px/s ring expansion
   var PING_RANGE = 470;
