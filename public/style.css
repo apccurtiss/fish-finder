@@ -508,20 +508,6 @@ button {
 }
 #minimap { display: block; width: 200px; height: 134px; border-radius: 6px; }
 
-.icon-btn {
-  position: absolute;
-  top: calc(14px + var(--safe-t));
-  right: 248px;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--sonar);
-  display: grid;
-  place-items: center;
-}
-.icon-btn.muted { color: var(--muted); }
 
 /* ---------------------------------------------------------- responsive */
 @media (hover: none) {
@@ -535,7 +521,6 @@ button {
   .board-wrap { width: 160px; padding: 8px 10px; }
   #board li:nth-child(n + 5) { display: none; }
   #board li { font-size: 12px; }
-  .icon-btn { right: 184px; }
   .mini-wrap { display: none; }
   .stat { min-width: 76px; padding: 6px 10px 4px; }
   .stat .value { font-size: 22px; }
@@ -547,7 +532,6 @@ button {
 @media (max-width: 420px) {
   .hud-top { left: 10px; gap: 6px; }
   .board-wrap { right: 10px; width: 140px; }
-  .icon-btn { top: auto; bottom: calc(26px + var(--safe-b)); left: 16px; right: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

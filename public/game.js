@@ -218,66 +218,6 @@
     }
   }
 
-  // ------------------------------------------------------------------ audio
-  var actx = null;
-  var muted = store('ff-muted') === '1';
-  function audio() {
-    if (muted) return null;
-    if (!actx) {
-      var AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      try { actx = new AC(); } catch (e) { return null; }
-    }
-    if (actx.state === 'suspended') actx.resume();
-    return actx;
-  }
-  function tone(f0, f1, dur, type, vol, delay) {
-    var a = audio(); if (!a) return;
-    var t = a.currentTime + (delay || 0);
-    var o = a.createOscillator(), g = a.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(f0, t);
-    o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(a.destination);
-    o.start(t); o.stop(t + dur + 0.05);
-  }
-  var noiseBuf = null;
-  function splash(vol) {
-    var a = audio(); if (!a) return;
-    if (!noiseBuf) {
-      noiseBuf = a.createBuffer(1, a.sampleRate * 0.5, a.sampleRate);
-      var d = noiseBuf.getChannelData(0);
-      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    }
-    var t = a.currentTime;
-    var src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-    src.buffer = noiseBuf;
-    f.type = 'lowpass';
-    f.frequency.setValueAtTime(2200, t);
-    f.frequency.exponentialRampToValueAtTime(300, t + 0.4);
-    g.gain.setValueAtTime(vol, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-    src.connect(f); f.connect(g); g.connect(a.destination);
-    src.start(t);
-  }
-  function sndPing(own) {
-    if (own) {
-      tone(1320, 1080, 1.3, 'sine', 0.12);
-      tone(1320, 1080, 1.0, 'sine', 0.035, 0.38);
-    } else {
-      tone(900, 820, 0.7, 'sine', 0.025);
-    }
-  }
-  function sndCatch(pts) {
-    if (pts < 0) { tone(220, 110, 0.35, 'square', 0.04); return; }
-    var notes = [523, 659, 784, 1046];
-    var n = clamp(Math.ceil(pts / 4), 1, 4);
-    for (var i = 0; i < n; i++) tone(notes[i], notes[i] * 1.01, 0.18, 'triangle', 0.07, i * 0.07);
-  }
-
   // ------------------------------------------------------------------ networking
   var ws = null, retry = 0;
   function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
@@ -400,11 +340,6 @@
     var r = S.roster[m.id];
     S.pings.push({ x: m.x, y: m.y, t0: performance.now(), own: own, color: r ? r.color : '#3cf2c8', hit: {} });
     if (own) S.myPingCd = PING_CD;
-    if (S.joined) {
-      var me = S.boats[S.me];
-      if (own) sndPing(true);
-      else if (me && Math.hypot(me.x - m.x, me.y - m.y) < 700) sndPing(false);
-    }
   }
 
   function onCast(m) {
@@ -431,16 +366,9 @@
         text: (m.pts >= 0 ? '+' : '') + m.pts, color: m.pts < 0 ? '#ff5d73' : own ? '#3cf2c8' : '#ffffff', big: own
       });
     }
-    if (own) {
-      splash(0.18);
-      if (m.c.length) {
-        sndCatch(m.pts);
-        var sc = $('score');
-        sc.classList.remove('bump'); void sc.offsetWidth; sc.classList.add('bump');
-      }
-    } else if (S.joined) {
-      var me = S.boats[S.me];
-      if (me && Math.hypot(me.x - m.x, me.y - m.y) < 500) splash(0.05);
+    if (own && m.c.length) {
+      var sc = $('score');
+      sc.classList.remove('bump'); void sc.offsetWidth; sc.classList.add('bump');
     }
   }
 
@@ -458,7 +386,6 @@
     var k = e.key.toLowerCase();
     if (k === ' ' || k === 'spacebar') { e.preventDefault(); if (!e.repeat) doCast(); return; }
     if (k === 'e' || k === 'q' || k === 'shift') { if (!e.repeat) doPing(); return; }
-    if (k === 'm') { toggleMute(); return; }
     if (k.indexOf('arrow') === 0) e.preventDefault();
     keys[k] = true;
   });
@@ -470,7 +397,6 @@
     if (e.button === 2) { doCast(); return; }
     steer.active = true; steer.id = e.pointerId; steer.x = e.clientX; steer.y = e.clientY;
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    audio();
   });
   cv.addEventListener('pointermove', function (e) {
     if (steer.active && e.pointerId === steer.id) { steer.x = e.clientX; steer.y = e.clientY; }
@@ -490,17 +416,6 @@
 
   function doPing() { if (S.joined && S.myPingCd <= 0) send({ t: 'ping' }); }
   function doCast() { if (S.joined && S.myCastCd <= 0 && S.phase === 0) send({ t: 'cast' }); }
-
-  function toggleMute() {
-    muted = !muted;
-    store('ff-muted', muted ? '1' : '0');
-    $('mute').classList.toggle('muted', muted);
-    $('muteIcon').setAttribute('d', muted
-      ? 'M3 9v6h4l5 5V4L7 9H3zm13.6 3l2.9-2.9-1.4-1.4-2.9 2.9-2.9-2.9-1.4 1.4 2.9 2.9-2.9 2.9 1.4 1.4 2.9-2.9 2.9 2.9 1.4-1.4z'
-      : 'M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z');
-  }
-  $('mute').addEventListener('click', toggleMute);
-  if (muted) { muted = false; toggleMute(); }
 
   function worldToScreen(x, y) {
     return { x: (x - S.cam.x) * S.camScale + vw / 2, y: (y - S.cam.y) * S.camScale + vh / 2 };
@@ -697,7 +612,7 @@
   }
 
   function drawPing(p, now) {
-    var r = ((now - p.t0) / 1000) * PING_SPEED;
+    var r = Math.max(0, ((now - p.t0) / 1000) * PING_SPEED);
     if (r > PING_RANGE + 60) return false;
     var life = clamp(1 - r / PING_RANGE, 0, 1);
     var base = p.own ? 1 : 0.45;
@@ -729,7 +644,7 @@
   }
 
   function drawNet(n, now) {
-    var t = (now - n.t0) / 800;
+    var t = Math.max(0, (now - n.t0) / 800);
     if (t >= 1) return false;
     var open = t < 0.35 ? t / 0.35 : 1;
     var r = lerp(14, NET_R, 1 - Math.pow(1 - open, 3));
@@ -763,7 +678,7 @@
     ctx.lineWidth = 1.2;
     for (var i = S.wakes.length - 1; i >= 0; i--) {
       var w = S.wakes[i];
-      var t = (now - w.t0) / 1700;
+      var t = Math.max(0, (now - w.t0) / 1700);
       if (t >= 1) { S.wakes.splice(i, 1); continue; }
       ctx.beginPath();
       ctx.arc(w.x, w.y, 3 + t * 20, 0, Math.PI * 2);
@@ -776,7 +691,7 @@
     ctx.fillStyle = '#e8fffb';
     for (var i = S.splashes.length - 1; i >= 0; i--) {
       var s = S.splashes[i];
-      var t = (now - s.t0) / s.life;
+      var t = Math.max(0, (now - s.t0) / s.life);
       if (t >= 1) { S.splashes.splice(i, 1); continue; }
       var e = 1 - Math.pow(1 - t, 2);
       ctx.globalAlpha = 1 - t;
@@ -864,7 +779,7 @@
     mctx.strokeRect((S.cam.x - hw) * sx, (S.cam.y - hh) * sy, hw * 2 * sx, hh * 2 * sy);
     // pings
     S.pings.forEach(function (p) {
-      var r = ((now - p.t0) / 1000) * PING_SPEED;
+      var r = Math.max(0, ((now - p.t0) / 1000) * PING_SPEED);
       mctx.beginPath();
       mctx.arc(p.x * sx, p.y * sy, r * sx, 0, Math.PI * 2);
       mctx.strokeStyle = hexA(p.color, 0.5 * clamp(1 - r / PING_RANGE, 0, 1));
@@ -884,8 +799,16 @@
   var spectT = Math.random() * 1000;
   var lastFrame = performance.now();
 
-  function frame(now) {
-    var dt = Math.min(0.05, (now - lastFrame) / 1000);
+  // One clock for everything: event timestamps (pings, casts, snapshots) come from
+  // performance.now(), so the renderer must use it too. The rAF timestamp can lag it.
+  // A bad frame is logged and skipped, never allowed to stop the loop.
+  function frame() {
+    requestAnimationFrame(frame);
+    try { render(performance.now()); } catch (err) { if (window.console) console.error(err); }
+  }
+
+  function render(now) {
+    var dt = clamp((now - lastFrame) / 1000, 0, 0.05);
     lastFrame = now;
     S.myPingCd = Math.max(0, S.myPingCd - dt);
     S.myCastCd = Math.max(0, S.myCastCd - dt);
@@ -973,7 +896,6 @@
       drawMinimap(now);
       updateHud(now);
     }
-    requestAnimationFrame(frame);
   }
 
   // ------------------------------------------------------------------ HUD
@@ -1045,7 +967,6 @@
     $('resultsKicker').textContent = 'Round ' + m.round + ' over';
     $('resultsTitle').textContent = myRank === 0 ? 'You topped the haul!' : myRank > 0 ? 'You placed #' + (myRank + 1) : 'Results';
     $('results').hidden = false;
-    if (myRank === 0) { tone(523, 523, 0.2, 'triangle', 0.08); tone(659, 659, 0.2, 'triangle', 0.08, 0.15); tone(1046, 1046, 0.5, 'triangle', 0.08, 0.3); }
   }
 
   // ------------------------------------------------------------------ hall of fame
@@ -1110,7 +1031,6 @@
     S.name = n;
     store('ff-name', n);
     S.wantJoin = true;
-    audio();
     send({ t: 'hello', name: n });
     nameInput.blur();
   });
