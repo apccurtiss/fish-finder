@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Fish finder</title>
+  <meta name="description" content="A real-time multiplayer sonar fishing game. Ping the deep, read the sonar, out-fish everyone on the water.">
+  <meta name="theme-color" content="#03101a">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,600;1,9..144,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <canvas id="game" aria-label="Ocean sonar view"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <!-- In-game HUD -->
+  <div id="hud" hidden>
+    <div class="hud-top">
+      <div class="stat">
+        <span class="label">Haul</span>
+        <span class="value" id="score">0</span>
+      </div>
+      <div class="stat">
+        <span class="label" id="phaseLabel">Round 1</span>
+        <span class="value" id="timer">3:00</span>
+      </div>
+    </div>
+
+    <div class="board-wrap">
+      <div class="label">On the water</div>
+      <ol id="board"></ol>
+    </div>
+
+    <ul id="feed" aria-live="polite"></ul>
+
+    <div id="controls">
+      <button id="btnPing" class="cd-btn" type="button">
+        <span class="ring"></span>
+        <span class="txt">Ping</span>
+        <kbd>E</kbd>
+      </button>
+      <button id="btnCast" class="cd-btn cast" type="button">
+        <span class="ring"></span>
+        <span class="txt">Cast</span>
+        <kbd>Space</kbd>
+      </button>
+    </div>
+
+    <div class="mini-wrap">
+      <canvas id="minimap" width="200" height="134"></canvas>
+    </div>
+
+    <button id="mute" class="icon-btn" type="button" aria-label="Toggle sound" title="Toggle sound (M)">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path id="muteIcon" fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+    </button>
+  </div>
+
+  <!-- Intro / join -->
+  <section id="intro" class="overlay">
+    <div class="panel intro-panel">
+      <div class="col">
+        <div class="brand">
+          <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" stroke-width="2" opacity=".35"/>
+            <circle cx="32" cy="32" r="19" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/>
+            <circle cx="32" cy="32" r="9" fill="none" stroke="currentColor" stroke-width="2" opacity=".8"/>
+            <path d="M32 32 L58 20 A29 29 0 0 1 61 32 Z" fill="currentColor" opacity=".5"/>
+            <circle cx="46" cy="24" r="3" fill="#ffe14d"/>
+          </svg>
+          <h1>Fish finder</h1>
+        </div>
+        <p class="tag">Ping the deep. Read the sonar. Out-fish every captain on the water.</p>
+
+        <form id="joinForm" autocomplete="off">
+          <label for="name">Captain name</label>
+          <div class="name-row">
+            <input id="name" name="name" maxlength="16" spellcheck="false" autocapitalize="words" required>
+            <button type="button" id="dice" class="ghost" title="Random name" aria-label="Random name">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/><circle cx="16" cy="16" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="16" cy="8" r="1.6" fill="currentColor"/><circle cx="8" cy="16" r="1.6" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <button class="primary" type="submit" id="sail" disabled>Set sail</button>
+          <p class="status" id="status">Connecting to the harbor…</p>
+        </form>
+
+        <ol class="how">
+          <li><b>Steer</b><span>WASD / arrows, or hold the mouse or a finger on the water.</span></li>
+          <li><b>Ping</b><span><kbd>E</kbd> sends a sonar pulse that shows the fish around you.</span></li>
+          <li><b>Cast</b><span><kbd>Space</kbd> drops your net just ahead of the bow.</span></li>
+        </ol>
+      </div>
+
+      <div class="col">
+        <h2>Species</h2>
+        <ul class="species" id="speciesList"></ul>
+        <h2>Hall of fame</h2>
+        <ol class="hall" id="hallList"><li class="empty">No rounds logged yet.</li></ol>
+        <p class="totals" id="totals"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Round results -->
+  <section id="results" class="overlay" hidden>
+    <div class="panel results-panel">
+      <p class="kicker" id="resultsKicker">Round over</p>
+      <h2 id="resultsTitle">Results</h2>
+      <ol class="results" id="resultsList"></ol>
+      <p class="next">New waters in <b id="nextIn">10</b>s</p>
+      <h3>Hall of fame</h3>
+      <ol class="hall" id="hallList2"></ol>
+    </div>
+  </section>
+
+  <script src="/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "fish-finder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fish finder: a real-time multiplayer sonar fishing game.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "^8.11.3",
+    "ws": "^8.16.0"
+  }
+}
